@@ -15,3 +15,5 @@ data.json
 .vscode/
 *.iml
 .DS_Store
+
+.codex-tmp/
