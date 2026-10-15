@@ -1,4 +1,5 @@
 import { Platform, requestUrl } from "obsidian";
+import { t as translate, getLocale } from "./i18n";
 
 /**
  * Google-OAuth für den Kalender-Sync. Bewusst **UI- und Plugin-agnostisch**:
@@ -145,7 +146,7 @@ function toTokens(json: Record<string, unknown>, prevRefresh?: string): GCalToke
   const access = json.access_token as string | undefined;
   const refresh = (json.refresh_token as string | undefined) ?? prevRefresh;
   const expiresIn = (json.expires_in as number | undefined) ?? 3600;
-  if (!access || !refresh) throw new GCalAuthError("Unvollständige Token-Antwort von Google.");
+  if (!access || !refresh) throw new GCalAuthError(translate("gcal_auth_incomplete_token"));
   return {
     accessToken: access,
     refreshToken: refresh,
@@ -173,7 +174,7 @@ export class GCalAuth {
   /** Gültiges Access-Token liefern; bei Bedarf transparent per Refresh-Token erneuern. */
   async getAccessToken(): Promise<string> {
     const t = this.store.load();
-    if (!t?.refreshToken) throw new GCalAuthError("Nicht mit Google verbunden.");
+    if (!t?.refreshToken) throw new GCalAuthError(translate("gcal_auth_not_connected"));
     if (t.accessToken && Date.now() < t.expiresAt - EXPIRY_SKEW_MS) return t.accessToken;
     return this.refresh(t);
   }
@@ -220,7 +221,7 @@ export class GCalAuth {
 
   private requireCredentials(): GCalCredentials {
     const creds = this.getCredentials();
-    if (!creds?.clientId) throw new GCalAuthError("Keine Google-Zugangsdaten hinterlegt.");
+    if (!creds?.clientId) throw new GCalAuthError(translate("gcal_auth_no_credentials"));
     return creds;
   }
 
@@ -249,7 +250,7 @@ export class GCalAuth {
             server.close();
             window.clearTimeout(timer);
             if (url.searchParams.get("error")) return reject(new GCalAuthError(url.searchParams.get("error")!));
-            if (!ok) return reject(new GCalAuthError("Ungültige Antwort (state stimmt nicht)."));
+            if (!ok) return reject(new GCalAuthError(translate("gcal_auth_invalid_state")));
             resolve({ code: url.searchParams.get("code")!, redirectUri: base });
           } catch (e) {
             reject(e instanceof Error ? e : new GCalAuthError(String(e)));
@@ -258,7 +259,7 @@ export class GCalAuth {
         let base = "";
         const timer = window.setTimeout(() => {
           server.close();
-          reject(new GCalAuthError("Zeitüberschreitung bei der Google-Anmeldung."));
+          reject(new GCalAuthError(translate("gcal_auth_timeout")));
         }, LOOPBACK_TIMEOUT_MS);
         server.on("error", (e: Error) => { window.clearTimeout(timer); reject(e); });
         server.listen(0, "127.0.0.1", () => {
@@ -309,7 +310,7 @@ export class GCalAuth {
     // Auf Zustimmung am Zweitgerät warten (authorization_pending → weiter pollen).
     let wait = intervalMs;
     for (;;) {
-      if (Date.now() > expiresAt) throw new GCalAuthError("Der Anmeldecode ist abgelaufen.");
+      if (Date.now() > expiresAt) throw new GCalAuthError(translate("gcal_auth_code_expired"));
       await sleep(wait);
       const res = await requestUrl({
         url: TOKEN_ENDPOINT,
@@ -338,14 +339,14 @@ function sleep(ms: number): Promise<void> {
 }
 
 /** Schlichte Abschluss-Seite im Browser nach dem Loopback-Redirect. */
-function loopbackPage(ok: boolean): string {
+export function loopbackPage(ok: boolean): string {
   const msg = ok
-    ? "✅ BeautyTasks ist jetzt mit Google Kalender verbunden."
-    : "⚠️ Anmeldung fehlgeschlagen. Bitte in Obsidian erneut versuchen.";
-  return `<!doctype html><html lang="de"><head><meta charset="utf-8">
+    ? "✅ " + translate("gcal_auth_page_success")
+    : "⚠️ " + translate("gcal_auth_page_failed");
+  return `<!doctype html><html lang="${getLocale()}"><head><meta charset="utf-8">
 <title>BeautyTasks</title><style>
 body{font-family:system-ui,sans-serif;background:#1e1e1e;color:#eee;display:flex;
 min-height:100vh;align-items:center;justify-content:center;margin:0}
 div{max-width:28rem;text-align:center;line-height:1.5;padding:2rem}
-</style></head><body><div><p>${msg}</p><p>Du kannst dieses Fenster schließen.</p></div></body></html>`;
+</style></head><body><div><p>${msg}</p><p>${translate("gcal_auth_page_close")}</p></div></body></html>`;
 }

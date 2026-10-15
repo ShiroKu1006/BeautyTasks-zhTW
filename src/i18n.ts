@@ -2,10 +2,25 @@
 // Identität (Frontmatter-Keys, Ordner, view-Typen) ist sprach-neutral und NICHT hier.
 // t(key, ...args) ersetzt Platzhalter {0}, {1}, … Fallback: locale → en → key.
 
+import { zhTW } from "./locales/zh-TW";
+
 type Dict = Record<string, string>;
 
 const STRINGS: Record<string, Dict> = {
+  "zh-TW": zhTW,
   en: {
+    set_meta_theme_user: "User",
+    gcal_auth_incomplete_token: "Google returned an incomplete token response.",
+    gcal_auth_not_connected: "Not connected to Google.",
+    gcal_auth_no_credentials: "No Google API credentials configured.",
+    gcal_auth_invalid_state: "Invalid response (state does not match).",
+    gcal_auth_timeout: "Google sign-in timed out.",
+    gcal_auth_code_expired: "The sign-in code has expired.",
+    gcal_auth_page_success: "BeautyTasks is now connected to Google Calendar.",
+    gcal_auth_page_failed: "Sign-in failed. Please try again in Obsidian.",
+    gcal_auth_page_close: "You can close this window.",
+    gcal_auth_reconnect: "Google connection expired — please reconnect.",
+    gcal_api_error: "Google Calendar: {0}",
     view_today: "Today", view_upcoming: "Upcoming", view_recurring: "Recurring", view_done: "Done",
     status_todo: "To-Do", status_doing: "In progress", status_done: "Done", status_cancelled: "Cancelled",
     layout_list: "List", layout_board: "Board", menu_cancel_task: "Cancel task",
@@ -346,6 +361,17 @@ const STRINGS: Record<string, Dict> = {
     view_display: "Display", panel_layout: "Layout", panel_show_done: "Show completed", panel_subtasks: "Sub-tasks", panel_subs_compact: "Compact", panel_subs_indented: "Indented", panel_subs_hide: "Hide", panel_subs_show: "Show", subtasks_progress: "{0} of {1} done", no_label: "No label", more_actions: "More",
   },
   de: {
+    gcal_auth_incomplete_token: "Unvollständige Token-Antwort von Google.",
+    gcal_auth_not_connected: "Nicht mit Google verbunden.",
+    gcal_auth_no_credentials: "Keine Google-Zugangsdaten hinterlegt.",
+    gcal_auth_invalid_state: "Ungültige Antwort (state stimmt nicht).",
+    gcal_auth_timeout: "Zeitüberschreitung bei der Google-Anmeldung.",
+    gcal_auth_code_expired: "Der Anmeldecode ist abgelaufen.",
+    gcal_auth_page_success: "BeautyTasks ist jetzt mit Google Kalender verbunden.",
+    gcal_auth_page_failed: "Anmeldung fehlgeschlagen. Bitte in Obsidian erneut versuchen.",
+    gcal_auth_page_close: "Du kannst dieses Fenster schließen.",
+    gcal_auth_reconnect: "Google-Verbindung abgelaufen – bitte neu verbinden.",
+    gcal_api_error: "Google Kalender: {0}",
     view_today: "Heute", view_upcoming: "Demnächst", view_recurring: "Wiederkehrend", view_done: "Erledigt",
     status_todo: "To-Do", status_doing: "In Arbeit", status_done: "Erledigt", status_cancelled: "Abgebrochen",
     layout_list: "Liste", layout_board: "Board", menu_cancel_task: "Abbrechen",
@@ -3411,7 +3437,9 @@ const DEFAULT_LOCALE = "en";
 let current = DEFAULT_LOCALE;
 
 export function pickLocale(raw?: string): string {
-  const l = String(raw ?? "").trim().toLowerCase();
+  const l = String(raw ?? "").trim().toLowerCase().replace(/_/g, "-");
+  // 判斷文字系統與地區後再退回基礎語言，避免繁中落入 zh（簡中）。
+  if (/^zh-(?:tw(?:-|$)|hant(?:-|$))/.test(l)) return "zh-TW";
   if (Object.prototype.hasOwnProperty.call(STRINGS, l)) return l;
   const base = l.split(/[-_]/)[0];   // regionale Codes auf die Basissprache mappen: pt-br→pt, zh-cn→zh, en-gb→en
   return Object.prototype.hasOwnProperty.call(STRINGS, base) ? base : DEFAULT_LOCALE;

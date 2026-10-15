@@ -1,5 +1,6 @@
 import { App, TFile } from "obsidian";
 import { getLocale } from "./i18n";
+import { formatDate } from "./format";
 import { findH1LineInBody } from "./taskTitle";
 
 // Kommentar-Log (Details) – 1:1 zum alten BeautyTasks (tasks-utils.js). Einträge stehen
@@ -64,6 +65,10 @@ export function formatLogTime(ts: string, now?: Date): string {
   const day = new Date(+m[1], +m[2] - 1, +m[3]);
   const diff = Math.round((day.getTime() - today.getTime()) / 86400000);
   const hm = m[4] + ":" + m[5];
+  if (getLocale() === "zh-TW") {
+    const todayISO = nowLogTs(base).slice(0, 10);
+    return formatDate(m[1] + "-" + m[2] + "-" + m[3], todayISO) + " · " + hm;
+  }
   const mon = de ? ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"]
                  : ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   let datePart: string;

@@ -255,6 +255,10 @@ function rangeTitle(mode: CalMode, anchor: string): string {
  *  Für Woche UND 3 Tage. */
 function spanTitle(days: string[]): string {
   const a = parseISO(days[0]), b = parseISO(days[days.length - 1]);
+  if (getLocale() === "zh-TW") {
+    const fmt = new Intl.DateTimeFormat("zh-TW", { year: "numeric", month: "long", day: "numeric" });
+    return `${fmt.format(a)} – ${fmt.format(b)}`;
+  }
   const fmt = (d: Date, withMonth: boolean): string =>
     new Intl.DateTimeFormat(getLocale(), withMonth ? { day: "numeric", month: "long" } : { day: "numeric" }).format(d);
   const year = new Intl.DateTimeFormat(getLocale(), { year: "numeric" }).format(b);

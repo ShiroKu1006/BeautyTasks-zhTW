@@ -21,7 +21,7 @@ import { getLocale } from "./i18n";
 // eigenen Parser, der nur die englischen Schlüsselwörter versteht. Bekannte Lücke.
 const FALLBACK: Record<string, Chrono> = {
   es: es.casual, pt: pt.casual, fr: fr.casual,
-  it: it.casual, ru: ru.casual, zh: zh.casual, ja: ja.casual,
+  it: it.casual, ru: ru.casual, zh: zh.casual, "zh-TW": zh.casual, ja: ja.casual,
 };
 
 /** Gibt es für diese Sprache einen chrono-Rückfall? (de/en/tr: nein – siehe oben.) */

@@ -252,7 +252,7 @@ export async function gcalRequest(
       try { return { status: res.status, json: res.json as Record<string, unknown>, etag }; }
       catch { return { status: res.status, json: null, etag }; }
     }
-    if (res.status === 401) throw new GCalAuthError("Google-Verbindung abgelaufen – bitte neu verbinden.");
+    if (res.status === 401) throw new GCalAuthError(t("gcal_auth_reconnect"));
     // 403/429 (Quota/Rate) und 5xx: mit exponentiellem Backoff wiederholen
     if ((res.status === 403 || res.status === 429 || res.status >= 500) && attempt < 5) {
       await sleep(Math.min(30000, 2 ** attempt * 1000) + Math.random() * 500);
@@ -260,7 +260,7 @@ export async function gcalRequest(
     }
     let msg = `HTTP ${res.status}`;
     try { msg = ((res.json as Record<string, unknown>).error as { message?: string })?.message ?? msg; } catch { /* text unten */ }
-    throw new GCalHttpError(res.status, "Google Kalender: " + msg);
+    throw new GCalHttpError(res.status, t("gcal_api_error", msg));
   }
 }
 

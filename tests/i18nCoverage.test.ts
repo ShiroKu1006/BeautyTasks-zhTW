@@ -5,11 +5,11 @@ import { setLocale, t, pickLocale } from "../src/i18n";
 // Entwicklers sieht das niemand, im spanischen Menü steht dann eine englische Zeile. Deshalb sind
 // die Texte, die einen ZWEITEN Tab bzw. den Planungs-Split öffnen, hier je Sprache festgenagelt.
 
-const LOCALES = ["en", "de", "es", "pt", "fr", "tr", "zh", "ru", "ja", "it"];
+const LOCALES = ["en", "de", "es", "pt", "fr", "tr", "zh", "zh-TW", "ru", "ja", "it"];
 const KEYS = ["menu_open_new_tab", "menu_open_right", "menu_open_window", "plan_open"];
 
 describe("Öffnen-Menü: in jeder Sprache übersetzt", () => {
-  it("kennt alle zehn Sprachen", () => {
+  it("kennt alle elf Sprachen", () => {
     for (const loc of LOCALES) expect(pickLocale(loc)).toBe(loc);
   });
 

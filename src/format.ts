@@ -18,6 +18,13 @@ export function monthShort(monthIndex: number): string {
   return new Intl.DateTimeFormat(getLocale(), { month: "short" }).format(new Date(2020, monthIndex, 1)).replace(/\.$/, "");
 }
 
+/** 台灣介面的日期順序；只影響顯示，不改動 ISO 儲存格式。 */
+function taiwanDate(d: Date, sameYear: boolean): string {
+  return new Intl.DateTimeFormat("zh-TW", {
+    ...(sameYear ? {} : { year: "numeric" }), month: "long", day: "numeric",
+  }).format(d);
+}
+
 /** Datums-Überschrift: „18. Jul · Heute · Samstag" / „19. Jul · Morgen · Sonntag" /
  *  „17. Jul · Gestern · Freitag", für sonstige Tage „20. Jul · Montag" (Datum · [rel ·] Wochentag).
  *  Liegt hier statt in der View, weil außer den Listen auch die Gruppierung (filterEngine)
@@ -27,7 +34,8 @@ export function groupLabel(dateISO: string, today: string): string {
   const tn = new Date(dateOf(today) + "T00:00");
   const diff = Math.round((d.getTime() - tn.getTime()) / 86400000);
   const sameYear = d.getFullYear() === tn.getFullYear();
-  const datePart = `${d.getDate()}. ${monthShort(d.getMonth())}${sameYear ? "" : " " + d.getFullYear()}`;
+  const datePart = getLocale() === "zh-TW" ? taiwanDate(d, sameYear)
+    : `${d.getDate()}. ${monthShort(d.getMonth())}${sameYear ? "" : " " + d.getFullYear()}`;
   const weekday = new Intl.DateTimeFormat(getLocale(), { weekday: "long" }).format(d);
   const rel = diff === 0 ? t("date_today") : diff === 1 ? t("date_tomorrow") : diff === -1 ? t("date_yesterday") : null;
   return [datePart, rel, weekday].filter(Boolean).join(" · ");
@@ -73,6 +81,7 @@ export function formatDate(iso: string, today = todayStr()): string {
   if (diff === -1) return t("date_yesterday");
   if (diff === 1) return t("date_tomorrow");
   const sameYear = d.getFullYear() === tn.getFullYear();
+  if (getLocale() === "zh-TW") return taiwanDate(d, sameYear);
   return `${d.getDate()} ${monthShort(d.getMonth())}${sameYear ? "" : " " + d.getFullYear()}`;
 }
 

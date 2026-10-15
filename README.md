@@ -1,4 +1,26 @@
-# BeautyTasks
+# BeautyTasks 台灣繁體中文版（非官方 Fork）
+
+這是 [ShiroKu1006/BeautyTasks-zhTW](https://github.com/ShiroKu1006/BeautyTasks-zhTW) 維護的非官方台灣繁體中文版本，原始專案為 [avnibilgin/BeautyTasks](https://github.com/avnibilgin/BeautyTasks)。本 Fork 新增 `zh-TW`，保留原有語系（包含簡體中文 `zh`），並沿用原作者的 MIT License 與版權聲明。下方上游版本與下載徽章指向原始專案，不代表本 Fork 的發布狀態。
+
+## 繁體中文設定與安裝
+
+1. 在本專案目錄使用 Node.js 與 npm 執行 `npm ci`、`npm run build`。
+2. 關閉 Obsidian，在筆記庫中建立 `.obsidian/plugins/beautytasks/`，將建置後的 `main.js`、`manifest.json`、`styles.css` 複製進去。更新既有安裝時，先備份筆記庫，保留原有 `data.json`。
+3. 開啟 Obsidian，在「設定 → 社群外掛」啟用 BeautyTasks。這個版本沿用外掛 ID `beautytasks`，同一個筆記庫只安裝一份；從社群外掛更新原版會覆蓋本 Fork。
+4. 在「設定 → BeautyTasks → Language／語言」選擇「繁體中文（台灣）」。設定會立即套用至任務介面；設定頁的標籤需關閉後重新開啟才會更新。
+5. 若要自動跟隨，在 Obsidian「設定 → 一般（General）→ 語言」選擇「繁體中文」並依提示重新啟動，再將 BeautyTasks 語言設為「自動（跟隨 Obsidian）」。設定位置可參考 [Obsidian 官方語言設定說明](https://obsidian.md/help/User%2Binterface/Language%2Bsettings)。外掛沿用 Obsidian 的 `moment.locale()`：`zh-TW`、`zh-tw`、`zh_TW`、`zh-Hant`、`zh-Hant-TW` 都會使用繁中；`zh`、`zh-CN`、`zh-Hans` 仍使用簡中。
+
+## 日期輸入與維護範圍
+
+- **Quick Add 與任務標題**沿用既有 `chrono-node` 中文解析器。自動偵測日期功能開啟時，可輸入「今天寫報告」、「明天寫報告」、「下週五寫報告」；以 2026-07-16（四）為基準，分別解析為 07-16、07-17、07-24。英文關鍵字 `tomorrow` 仍可使用。
+- **日期選擇器內的文字欄位**使用另一套既有解析流程，目前不支援「今天」、「明天」、「下週五」。請點選「今天／明天」等快捷選項、選取行事曆日期，或輸入 ISO 日期（例如 `2026-07-24`）及原有英文日期詞。
+- **週期任務**的選單、規則摘要與星期名稱會顯示繁體中文；自訂規則輸入仍使用英文或德文，例如 `every 3 days`、`every second Monday`（每兩週的星期一）、`last Friday of the month`，尚未支援中文週期語法。時長輸入保留既有 `min`、`h` 單位。
+- `src/locales/zh-TW.ts` 集中存放譯文；`src/i18n.ts` 保留上游字典與英文 fallback。同步上游後，執行 `npm test` 可檢查繁中 key 與英文完全一致、占位符是否保留，以及日期／週期基本行為。
+- 本次只調整語言識別與顯示，不變更 Frontmatter 欄位、狀態 ID、資料格式、遷移流程或 Google Calendar 同步協定。既有的使用者自訂名稱、筆記內容與外部服務回傳的錯誤原文不會自動翻譯。
+
+以下保留原始專案的功能與操作說明。
+
+---
 
 A Todoist-style task & project manager that lives **inside** Obsidian — with a fast, native UI on top of plain Markdown. Every task is a single Markdown note, so your data stays open, portable and future-proof, and there are **no plugin dependencies** and no account required.
 
@@ -15,7 +37,7 @@ A Todoist-style task & project manager that lives **inside** Obsidian — with a
 - **Zero plugin dependencies, local-first.** No other plugin and no account required. Your tasks are plain Markdown in your vault — the one optional online feature is two-way **Google Calendar sync**, which stays off until you set it up.
 - **Your frontmatter stays yours.** The two field names BeautyTasks needs — `type` and `title` — are configurable, so it never has to claim a property you already use. Turning an existing note into a task adds frontmatter and nothing else; your text is never rewritten.
 - **Fully themeable.** Every color is a CSS variable; works with your theme, CSS snippets, or the Style Settings plugin — including a monochrome mode.
-- **10 languages.** The interface is available in English, German, Spanish, Portuguese (Brazil), French, Italian, Turkish, Russian, Simplified Chinese and Japanese (auto-detected from Obsidian, or set in settings). Natural-language **dates and times** work in all of them except Turkish, where English keywords (`tomorrow`, `next monday`) still do. English keywords work in every language, alongside your own.
+- **11 languages in this fork.** The interface is available in English, German, Spanish, Portuguese (Brazil), French, Italian, Turkish, Russian, Simplified Chinese, Traditional Chinese (Taiwan) and Japanese (auto-detected from Obsidian, or set in settings). Natural-language **dates and times** in task titles work in all of them except Turkish, where English keywords (`tomorrow`, `next monday`) still do. English keywords work in every language, alongside your own. See the Traditional Chinese notes above for date-picker and recurrence-input limitations.
 
 ---
 

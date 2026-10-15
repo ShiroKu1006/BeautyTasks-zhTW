@@ -170,6 +170,7 @@ export class BeautyTasksSettingTab extends PluginSettingTab {
       dd.addOption("tr", "Türkçe");
       dd.addOption("ru", "Русский");
       dd.addOption("zh", "简体中文");
+      dd.addOption("zh-TW", "繁體中文（台灣）");
       dd.addOption("ja", "日本語");
       dd.setValue(p.settings.locale);
       // Sofort auf die Plugin-UI anwenden; die Settings-Labels wechseln beim erneuten Öffnen.
@@ -269,7 +270,7 @@ export class BeautyTasksSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName(t("set_meta_theme")).setDesc(t("set_meta_theme_desc")).addDropdown((dd) => {
       dd.addOption("minimalisdo", "Minimalisdo");   // Eigennamen -> nicht übersetzt
       dd.addOption("colorado", "Colorado");
-      dd.addOption("user", "User");   // eigene Farben (metaColors) – nur hier sind die Picker aktiv
+      dd.addOption("user", t("set_meta_theme_user"));   // eigene Farben (metaColors) – nur hier sind die Picker aktiv
       dd.setValue(p.settings.metaTheme).onChange(async (v) => {
         p.settings.metaTheme = v as "minimalisdo" | "colorado" | "user";
         await p.saveSettings();
