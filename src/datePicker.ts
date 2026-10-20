@@ -174,8 +174,8 @@ export function openDatePicker(
       next.onclick = (ev) => { ev.stopPropagation(); view = new Date(view.getFullYear(), view.getMonth() + 1, 1); renderCal(); };
 
       const grid = cal.createDiv({ cls: "bt-cal-grid" });
-      for (const wd of [1, 2, 3, 4, 5, 6, 0]) grid.createDiv({ cls: "bt-cal-wd", text: weekdayShort(wd) });
-      const startOff = (view.getDay() + 6) % 7;       // Montag zuerst
+      for (const wd of [0, 1, 2, 3, 4, 5, 6]) grid.createDiv({ cls: "bt-cal-wd", text: weekdayShort(wd) });
+      const startOff = view.getDay();                // Sonntag zuerst
       const start = new Date(view); start.setDate(view.getDate() - startOff);
       const tISO = todayISO();
       for (let i = 0; i < 42; i++) {
