@@ -861,6 +861,28 @@ body {
    einmal, dass sie existiert. Wie beim Datums-Popover also eine eigene, groessere Grenze; der
    Bildschirm bleibt die harte Schranke. */
 .bt-pop.bt-recur { min-width: 240px; max-height: min(520px, calc(100vh - 16px)); }
+.bt-recur-end {
+  min-inline-size: 0; margin: 8px 0 0; padding: 8px 4px 0;
+  border: 0; border-top: 1px solid var(--background-modifier-border);
+}
+.bt-recur-end legend { padding: 0 4px; font-size: 0.84em; font-weight: 600; color: var(--text-muted); }
+.bt-recur-end-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; cursor: pointer; }
+.bt-recur-end-row > span { white-space: nowrap; font-size: 0.9em; }
+.bt-recur-end-row input[type="radio"] { flex: 0 0 auto; margin: 0; }
+.bt-recur-end-date, .bt-recur-end-count {
+  min-width: 0; height: 32px; padding: 4px 6px; font: inherit;
+  color: var(--text-normal); background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border); border-radius: 6px;
+}
+.bt-recur-end-date { flex: 1; width: 0; }
+.bt-recur-end-count { width: 76px; margin-left: auto; }
+.bt-recur-end-row input:disabled { opacity: 0.45; }
+.bt-recur-end-row input:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 2px; }
+.bt-recur-end-row input[aria-invalid="true"] { border-color: var(--text-error); }
+.bt-recur-end-hint { padding: 4px 0; }
+.bt-recur-end-error { font-size: 0.8em; line-height: 1.4; color: var(--text-error); white-space: normal; }
+.bt-recur-end-error:empty, .bt-recur-end-hint:empty { display: none; }
+.theme-dark .bt-recur-end-date { color-scheme: dark; }
 .bt-pop.bt-tags { min-width: 240px; }
 .bt-pop.bt-tags .bt-tag-add { width: 100%; box-sizing: border-box; margin-bottom: 6px; padding: 5px 7px; border-radius: 5px; border: 1px solid var(--background-modifier-border); background: var(--background-primary); color: var(--text-normal); }
 .bt-pop.bt-tags .bt-tag-list { max-height: 220px; overflow-y: auto; }

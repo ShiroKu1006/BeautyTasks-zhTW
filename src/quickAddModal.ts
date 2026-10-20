@@ -16,6 +16,7 @@ import { openPopover, popRow } from "./popover";
 import { CHIPS, ChipHost, resolveChipOrder, isInline, plusHasSetHidden, renderPlusChips, renderStatusChip, renderValueChip, openChipSettings } from "./chips";
 import { firstOpenStatus } from "./statuses";
 import { TaskModal } from "./taskModal";
+import { recurrenceEndError } from "./recurrence";
 
 export class QuickAddModal extends Modal {
   private f: {
@@ -108,6 +109,7 @@ export class QuickAddModal extends Modal {
    *  dann leert der Chip wie bisher. */
   /** ✕ am Wiederholungs-Chip: erkannten Ausloeser im Titel escapen. Siehe unparseDue(). */
   private unparseRecur(): boolean {
+    this.nl.recurEnd = undefined;
     const next = escapeTriggers(this.f.title, [this.nl.recurSrc]);
     if (next === this.f.title) return false;
     this.f.title = next;
@@ -232,6 +234,8 @@ export class QuickAddModal extends Modal {
   private async submit(): Promise<void> {
     const title = this.titleValue();
     if (!title) { new Notice(t("err_enter_taskname")); return; }
+    const error = recurrenceEndError(this.f.recurrence, this.f.due, this.f.scheduled);
+    if (error) { new Notice(t(error)); return; }
     await createTaskNote(this.app, this.plugin.settings, {
       title, status: this.f.status,
       due: this.f.due, dueTime: this.f.dueTime, duration: this.f.duration,

@@ -2344,8 +2344,7 @@ export default class BeautyTasksPlugin extends Plugin {
           scheduled: next.scheduled,
           scheduledTime: task.scheduledTime,
           duration: task.duration,
-          // Nicht task.recurrence: Bei COUNT traegt die Folgeaufgabe eine um eins verringerte
-          // Regel, sonst liefe die Zaehlung nie ab (s. recurrence.successorRule).
+          // Carry the remaining COUNT after the current task and any skipped occurrences.
           recurrence: next.recurrence,
           recurBasis: task.recurBasis,
         });

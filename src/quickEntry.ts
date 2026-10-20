@@ -9,7 +9,7 @@
 import { Chrono } from "chrono-node";
 import { chronoFallback } from "./chronoLocale";
 import { Priority } from "./types";
-import { firstOccurrence } from "./recurrence";
+import { firstOccurrence, getRecurrenceEnd, setRecurrenceEnd, RecurrenceEnd } from "./recurrence";
 
 const z = (n: number) => String(n).padStart(2, "0");
 const iso = (d: Date) => d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate());
@@ -356,6 +356,7 @@ export interface QuickEntryState {
   labels: string[]; project: string | null;
   dueSrc: string; timeSrc: string; recurSrc: string;
   dueFromTitle: boolean;   // f.due stammt aus dem Titel (Datumswort ODER Anker) -> darf zurueck
+  recurEnd?: RecurrenceEnd; // Keep manual limits while a partially edited frequency cannot be parsed.
 }
 export const emptyQuickEntryState = (): QuickEntryState => ({ labels: [], project: null, dueSrc: "", timeSrc: "", recurSrc: "", dueFromTitle: false });
 
@@ -402,6 +403,7 @@ export function applyQuickEntry(raw: string, fields: QuickEntryFields, state: Qu
   const [y, mo, d] = opts.today.split("-").map(Number);
   const p = parseQuickEntry(raw, opts.projects ?? [], new Date(y, mo - 1, d));
   const f: QuickEntryFields = { ...fields };
+  const recurEnd = fields.recurrence ? getRecurrenceEnd(fields.recurrence) : state.recurEnd;
 
   // Was der letzte Lauf AUS DEM TITEL gesetzt hat, gehört dem Titel: verschwindet der Auslöser,
   // verschwindet der Wert. Ohne das klebt beim Tippen von „um 2015" der Zwischenstand „um 20"
@@ -432,7 +434,8 @@ export function applyQuickEntry(raw: string, fields: QuickEntryFields, state: Qu
   // oben bereits gesetzt wurde. duePinned schlägt den Anker: ein bewusst geleertes Datum holt
   // „jeden Tag" nicht zurück.
   if (p.recurrence) {
-    f.recurrence = p.recurrence; recurSrc = p.recurSrc;
+    f.recurrence = recurEnd ? setRecurrenceEnd(p.recurrence, recurEnd) ?? p.recurrence : p.recurrence;
+    recurSrc = p.recurSrc;
     if (!opts.duePinned && f.due == null) { f.due = opts.today; dueFromTitle = true; }
     // Auch der Ersatz-Anker „heute" muss der Regel gehorchen: „am 15. jedes Monats" darf nicht
     // auf dem 7. beginnen, nur weil heute der 7. ist. parseQuickEntry gleicht bereits an, hier
@@ -451,5 +454,5 @@ export function applyQuickEntry(raw: string, fields: QuickEntryFields, state: Qu
   const parsed = [...new Set(p.tags)].filter((tag) => !manual.includes(tag));
   f.labels = [...manual, ...parsed];
 
-  return { title: p.title, fields: f, state: { labels: parsed, project, dueSrc, timeSrc, recurSrc, dueFromTitle } };
+  return { title: p.title, fields: f, state: { labels: parsed, project, dueSrc, timeSrc, recurSrc, dueFromTitle, recurEnd } };
 }

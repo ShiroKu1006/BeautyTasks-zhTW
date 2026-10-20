@@ -7,13 +7,45 @@ const HEUTE = "2026-06-15";
 const MORGEN = "2026-06-16";
 
 const fields = (over: Partial<QuickEntryFields> = {}): QuickEntryFields =>
-  ({ due: null, dueTime: null, priority: "normal", labels: [], project: null, ...over });
+  ({ due: null, dueTime: null, priority: "normal", labels: [], project: null, recurrence: null, ...over });
 
 const opts = (over: Partial<QuickEntryOptions> = {}): QuickEntryOptions =>
   ({ enabled: true, frozen: false, duePinned: false, today: HEUTE, ...over });
 
 const run = (raw: string, over: { f?: Partial<QuickEntryFields>; s?: QuickEntryState; o?: Partial<QuickEntryOptions> } = {}) =>
   applyQuickEntry(raw, fields(over.f), over.s ?? emptyQuickEntryState(), opts(over.o));
+
+describe("標題重新解析保留結束條件", () => {
+  it.each(["COUNT=4", "UNTIL=20261120T000000Z"])("跨逐字修改的無法解析中間態也保留 %s", (end) => {
+    let result = run("sport every day");
+    result.fields.recurrence = "FREQ=DAILY;" + end;
+    for (const raw of ["sport every da", "sport every d", "sport every ", "sport every w", "sport every we", "sport every wee", "sport every week"]) {
+      result = applyQuickEntry(raw, result.fields, result.state, opts());
+    }
+    expect(result.fields.recurrence).toBe("FREQ=WEEKLY;" + end);
+  });
+
+  it.each(["COUNT=4", "UNTIL=20261120T000000Z"])("繼續打字或改週期都保留 %s", (end) => {
+    const first = run("sport every day");
+    first.fields.recurrence = "FREQ=DAILY;" + end;
+    const second = applyQuickEntry("sport outdoors every day", first.fields, first.state, opts());
+    expect(second.fields.recurrence).toBe("FREQ=DAILY;" + end);
+    const third = applyQuickEntry("sport outdoors every week", second.fields, second.state, opts());
+    expect(third.fields.recurrence).toBe("FREQ=WEEKLY;" + end);
+  });
+
+  it("從快速新增交給完整編輯重新解析，也保留限制", () => {
+    expect(run("sport every week", { f: { recurrence: "FREQ=DAILY;COUNT=4" } }).fields.recurrence)
+      .toBe("FREQ=WEEKLY;COUNT=4");
+  });
+
+  it("明確選擇永不後，舊的次數不會從暫存恢復", () => {
+    const first = run("sport every day", { f: { recurrence: "FREQ=DAILY;COUNT=4" } });
+    first.fields.recurrence = "FREQ=DAILY";
+    const second = applyQuickEntry("sport every week", first.fields, first.state, opts());
+    expect(second.fields.recurrence).toBe("FREQ=WEEKLY");
+  });
+});
 
 describe("applyQuickEntry – Uhrzeit ohne Datum", () => {
   it("setzt heute, damit die Uhrzeit sichtbar ist und das Speichern überlebt", () => {
@@ -210,6 +242,6 @@ describe("applyQuickEntry – mutiert die Eingaben nicht", () => {
   it("lässt die übergebenen Felder unverändert", () => {
     const f = fields({ labels: ["a"] });
     applyQuickEntry("Zahnarzt morgen #b", f, emptyQuickEntryState(), opts());
-    expect(f).toEqual({ due: null, dueTime: null, priority: "normal", labels: ["a"], project: null });
+    expect(f).toEqual({ due: null, dueTime: null, priority: "normal", labels: ["a"], project: null, recurrence: null });
   });
 });

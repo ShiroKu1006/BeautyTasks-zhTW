@@ -3,7 +3,7 @@
 // (Datum, Priorität, Status, Wiederholung, Labels, Erinnerungen, Übergeordnet) und die
 // Sichtbarkeits-/Reihenfolge-Logik (chipOrder/chipTiers). Beide Modale rendern über CHIPS und
 // nutzen dieselben Picker – keine Duplikate mehr.
-import { App, Platform, setIcon } from "obsidian";
+import { App, Notice, Platform, setIcon } from "obsidian";
 import type BeautyTasksPlugin from "./main";
 import { Priority, TaskStatus, ChipId, ChipTier, ChipSurface, ChipProfile, CHIP_IDS, BeautyTasksSettings } from "./types";
 import { formatDateTime, formatDeadline, formatDuration, combineDT, dateOf, timeOf } from "./format";
@@ -15,7 +15,8 @@ import { TaskPickerModal } from "./searchModal";
 import { slugify, todayIso, baseName } from "./taskService";
 import { t } from "./i18n";
 import { tip, tipWhenClipped, isClipped } from "./tooltip";
-import { firstOccurrence } from "./recurrence";
+import { firstOccurrence, preserveRecurrenceEnd, recurrenceEndError, setRecurrenceEnd } from "./recurrence";
+import { renderRecurrenceEndPicker } from "./recurrenceEndPicker";
 import { describeRecurrence } from "./recurrenceText";
 import { parseQuickEntry } from "./quickEntry";
 
@@ -170,20 +171,23 @@ function openRecur(host: ChipHost, anchor: HTMLElement): void {
   const f = host.f;
   openPopover(anchor, (pop, close) => {
     pop.addClass("bt-recur");
+    const applyFrequency = (rule: string): void => {
+      const candidate = preserveRecurrenceEnd(rule, f.recurrence);
+      const due = firstOccurrence(rule, f.due ?? todayIso()) ?? f.due ?? todayIso();
+      const error = recurrenceEndError(candidate, due, f.scheduled);
+      if (error) { new Notice(t(error)); return; }
+      f.recurrence = candidate;
+      if (!f.due) host.pinDue();
+      f.due = due;
+      host.rerender(); render();
+    };
     const render = () => {
       pop.empty();
       popRow(pop, "x", t("recur_none"), () => { f.recurrence = null; host.rerender(); close(); }, !f.recurrence);
       for (const r of RECUR) {
         popRow(pop, "refresh-ccw", t(r.key), () => {
-          f.recurrence = r.val;
-          // Eine Wiederholung braucht einen Anker: ohne Datum liefert recurrence.ts keine naechste
-          // Instanz (nextInstance: ohne due UND scheduled -> null). Der Chip zeigte dann „Taeglich"
-          // an, ohne dass je etwas wiederkehrt. Genau wie bei der Texterkennung: ohne Datum heute.
-          // pinDue, weil das hier eine Handauswahl ist – der Titel soll es nicht ueberschreiben.
-          if (!f.due) { f.due = todayIso(); host.pinDue(); }
-          f.due = firstOccurrence(r.val, f.due) ?? f.due;
-          host.rerender(); render();
-        }, f.recurrence === r.val);
+          applyFrequency(r.val);
+        }, !!f.recurrence && setRecurrenceEnd(f.recurrence, { mode: "never" })?.replace(/^RRULE:/i, "") === r.val);
       }
       // Eigene Regel eintippen. Nutzt dieselbe Erkennung wie der Aufgabentitel – wer „jeden
       // zweiten Montag" schreiben kann, soll es nicht zweimal lernen muessen. Die Vorschau zeigt
@@ -195,7 +199,7 @@ function openRecur(host: ChipHost, anchor: HTMLElement): void {
       const readRule = (): string | null => parseQuickEntry(inp.value).recurrence;
       const update = (): void => {
         const r = inp.value.trim() ? readRule() : null;
-        preview.setText(r ? describeRecurrence(r) : t("recur_custom_hint"));
+        preview.setText(r ? describeRecurrence(preserveRecurrenceEnd(r, f.recurrence)) : t("recur_custom_hint"));
         preview.toggleClass("is-set", !!r);
       };
       inp.oninput = update;
@@ -204,15 +208,15 @@ function openRecur(host: ChipHost, anchor: HTMLElement): void {
         e.preventDefault();
         const r = readRule();
         if (!r) return;                       // nicht verstanden -> Feld bleibt offen, Hinweis steht da
-        f.recurrence = r;
-        // Die Regel bestimmt den ersten Termin, nicht das zufaellig eingestellte Datum.
-        if (!f.due) { f.due = todayIso(); host.pinDue(); }
-        f.due = firstOccurrence(r, f.due) ?? f.due;
-        host.rerender(); render();
+        applyFrequency(r);
       };
       update();
 
       if (f.recurrence) {
+        renderRecurrenceEndPicker(pop, {
+          rule: f.recurrence, due: f.due, scheduled: f.scheduled,
+          onChange: (rule) => { f.recurrence = rule; host.rerender(); update(); },
+        });
         pop.createDiv({ cls: "bt-pop-head", text: t("recur_basis") });
         popRow(pop, f.recurBasis === "done" ? "check-circle-2" : "circle", t("recur_when_done"),
           () => { f.recurBasis = f.recurBasis === "done" ? "due" : "done"; host.rerender(); render(); },

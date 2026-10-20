@@ -97,6 +97,39 @@ describe("recur_basis wirkt auch bei RRULE", () => {
   });
 });
 
+describe("有限次數與逾期排程", () => {
+  it("跳過的每日排程也扣次數，後續不延長原本的範圍", () => {
+    const next = nextInstance(task({ recurrence: "FREQ=DAILY;COUNT=4", due: "2026-10-20" }), "2026-10-22");
+    expect(next).toEqual({ due: "2026-10-23", scheduled: null, recurrence: "FREQ=DAILY;COUNT=1" });
+    expect(nextInstance(task({ ...next }), "2026-10-23")).toBeNull();
+  });
+
+  it("依實際每週多日排程扣除，不以天數當次數", () => {
+    expect(nextInstance(task({ recurrence: "FREQ=WEEKLY;BYDAY=MO,WE,FR;COUNT=5", due: "2026-10-19" }), "2026-10-23"))
+      .toEqual({ due: "2026-10-26", scheduled: null, recurrence: "FREQ=WEEKLY;BYDAY=MO,WE,FR;COUNT=2" });
+  });
+
+  it("僅有 scheduled 時同樣扣掉跳過的排程", () => {
+    expect(nextInstance(task({ recurrence: "FREQ=DAILY;COUNT=4", scheduled: "2026-10-20" }), "2026-10-22"))
+      .toEqual({ due: null, scheduled: "2026-10-23", recurrence: "FREQ=DAILY;COUNT=1" });
+  });
+
+  it("全部過期即停止", () => {
+    expect(due("FREQ=DAILY;COUNT=4", "2026-10-20", "2026-10-25")).toBeNull();
+  });
+
+  it("從完成日重複只扣本次，即使完成日不符合指定星期", () => {
+    expect(nextInstance(task({ recurrence: "FREQ=WEEKLY;BYDAY=MO;COUNT=3", due: "2026-10-19", recurBasis: "done" }), "2026-10-21"))
+      .toEqual({ due: "2026-10-26", scheduled: null, recurrence: "FREQ=WEEKLY;BYDAY=MO;COUNT=2" });
+    expect(due("FREQ=WEEKLY;BYDAY=MO;COUNT=1", "2026-10-19", "2026-10-21", "done")).toBeNull();
+  });
+
+  it("截止日包含當天，且不受日期時區轉換影響", () => {
+    expect(due("FREQ=DAILY;UNTIL=20261021T000000Z", "2026-10-20", "2026-10-20")).toBe("2026-10-21");
+    expect(due("FREQ=DAILY;UNTIL=20261021T000000Z", "2026-10-21", "2026-10-21")).toBeNull();
+  });
+});
+
 describe("Sommerzeit", () => {
   it("verschiebt Termine über die Zeitumstellung hinweg nicht", () => {
     // Umstellung in Europa: 2026-03-29. Täglich darüber hinweg muss Tag für Tag zählen.

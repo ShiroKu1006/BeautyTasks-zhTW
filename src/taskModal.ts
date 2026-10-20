@@ -15,6 +15,7 @@ import { CHIPS, ChipHost, ChipFields, chipsCompact, resolveChipOrder, isInline, 
 import { t, projectDisplayName } from "./i18n";
 import { tip } from "./tooltip";
 import { attachLinkSuggest } from "./linkSuggest";
+import { recurrenceEndError } from "./recurrence";
 
 // PRIOS/PRIO_KEY leben jetzt in chips.ts (gemeinsam mit der Schnelleingabe); hier re-exportiert,
 // damit bestehende Importe (filterModal, quickAddModal) unverändert bleiben.
@@ -209,6 +210,17 @@ export class TaskModal extends Modal {
     submit.onclick = () => void this.save();
   }
 
+  close(): void {
+    if (!this.discarding && !this.persisted && !this.validRecurrence()) return;
+    super.close();
+  }
+
+  private validRecurrence(): boolean {
+    const error = recurrenceEndError(this.f.recurrence, this.f.due, this.f.scheduled);
+    if (error) new Notice(t(error));
+    return !error;
+  }
+
   onClose(): void {
     // Auto-Speichern beim Wegklicken / Esc / X (nur mit Titel). „Cancel" verwirft bewusst.
     // persist() ist gegen Doppel-Schreiben geschützt (this.persisted) und braucht kein DOM.
@@ -323,6 +335,7 @@ export class TaskModal extends Modal {
    *  Auslöser nicht auffindbar), dann leert der Chip wie bisher. */
   /** ✕ am Wiederholungs-Chip: erkannten Ausloeser im Titel escapen. Siehe unparseDue(). */
   private unparseRecur(): boolean {
+    this.nl.recurEnd = undefined;
     const next = escapeTriggers(this.f.title, [this.nl.recurSrc]);
     if (next === this.f.title) return false;
     this.f.title = next;
@@ -447,6 +460,7 @@ export class TaskModal extends Modal {
   private async duplicate(): Promise<void> {
     const title = this.titleValue();
     if (!title) { new Notice(t("err_enter_taskname")); return; }
+    if (!this.validRecurrence()) return;
     await this.persist();   // laufende Bearbeitung sichern, bevor kopiert wird
     const file = await createTaskNote(this.app, this.plugin.settings, {
       ...this.f, title: title + " " + t("copy_suffix"), status: firstOpenStatus(),
@@ -561,8 +575,20 @@ export class TaskModal extends Modal {
   /** Status übernehmen. Bei bestehender Aufgabe live schreiben (setTaskStatus kümmert sich
    *  um Zeitstempel/Wiederholung); bei neuer Aufgabe fließt f.status beim Anlegen ein. */
   private async applyStatus(status: TaskStatus): Promise<void> {
+    if (!this.validRecurrence()) return;
+    if (this.existing) {
+      // Completion may create a successor immediately, before the editor is saved.
+      // Use the draft recurrence and dates without setting persist()'s one-write flag.
+      await this.plugin.setTaskStatus({
+        ...this.existing,
+        recurrence: this.f.recurrence ?? null, recurBasis: this.f.recurBasis ?? "due",
+        due: this.f.due ?? null, dueTime: this.f.dueTime ?? null,
+        scheduled: this.f.scheduled ?? null, scheduledTime: this.f.scheduledTime ?? null,
+        duration: this.f.duration ?? null,
+      }, status);
+      this.existing.status = status;
+    }
     this.f.status = status;
-    if (this.existing) { await this.plugin.setTaskStatus(this.existing, status); this.existing.status = status; }
     this.renderChips();
   }
 
@@ -654,6 +680,7 @@ export class TaskModal extends Modal {
   /** Explizites Speichern (Button/Enter): bei leerem Titel Hinweis + offen bleiben. */
   private async save(): Promise<void> {
     if (!this.titleValue()) { new Notice(t("err_enter_taskname")); return; }
+    if (!this.validRecurrence()) return;
     // Entwürfe VOR persist(): Bei einer neuen Aufgabe schreibt persist() den Kommentar-Puffer
     // in die frisch angelegte Notiz. Käme der Entwurf erst über onClose dazu, wäre dieser
     // Zug bereits gefahren und der Text verloren. Beide flushDraft() sind mehrfach aufrufbar
@@ -669,6 +696,7 @@ export class TaskModal extends Modal {
   private async persist(): Promise<void> {
     const title = this.titleValue();
     if (!title || this.persisted) return;
+    if (!this.validRecurrence()) return;
     this.persisted = true;
     if (this.existing) {
       const file = this.app.vault.getAbstractFileByPath(this.existing.path);

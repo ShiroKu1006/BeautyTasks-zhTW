@@ -131,34 +131,78 @@ const fromIso = (iso: string) => new Date(iso + "T00:00:00Z");
 const addDays = (iso: string, days: number) => { const d = fromIso(iso); d.setUTCDate(d.getUTCDate() + days); return toIso(d); };
 const ms = (iso: string) => fromIso(iso).getTime();
 
-/** Regel + Anker -> erster Termin ECHT nach `afterIso`. `null`, wenn die Regel ausläuft
- *  (COUNT/UNTIL erschöpft) oder unlesbar ist. */
-function nextAfter(rule: string, anchorIso: string, afterIso: string): string | null {
-  const opts = ruleOptions(rule);
-  if (!opts) return null;
-  const next = new RRule({ ...opts, dtstart: fromIso(anchorIso) }).after(fromIso(afterIso), false);
-  return next ? toIso(next) : null;
+export type RecurrenceEnd =
+  | { mode: "never" }
+  | { mode: "until"; date: string }
+  | { mode: "count"; count: number };
+
+const validDate = (date: string): boolean =>
+  /^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isFinite(ms(date)) && toIso(fromIso(date)) === date;
+
+/** COUNT is the number remaining, including the task holding this rule. */
+export function getRecurrenceEnd(rule?: string | null): RecurrenceEnd {
+  const opts = rule ? ruleOptions(rule) : null;
+  if (opts?.until instanceof Date) return { mode: "until", date: toIso(opts.until) };
+  if (typeof opts?.count === "number") return { mode: "count", count: opts.count };
+  return { mode: "never" };
 }
 
-/**
- * Welche Regel trägt die FOLGEAUFGABE?
- *
- * Normalerweise dieselbe. Bei `COUNT` aber eine um eins verringerte – und darin steckt die
- * Lösung für ein Problem, das unser Modell sonst hätte: Wir wiederholen über eine Kette neuer
- * Aufgaben, und jede verankert die Regel an ihrem eigenen Datum. Bliebe `COUNT=10` stehen,
- * begänne die Zählung bei jeder Instanz von vorn und liefe nie ab.
- *
- * Verringert wandert der Rest mit: Aus `COUNT=3` wird `COUNT=2`, dann `COUNT=1` – und bei
- * `COUNT=1` liefert die Regel von sich aus keinen weiteren Termin mehr, weil die eine erlaubte
- * Wiederholung der Anker selbst ist. Die Kette endet also ohne Sonderfall, und im Frontmatter
- * kann man ablesen, wie viele noch kommen.
- *
- * Gezielt ersetzt statt die Regel neu zu serialisieren: So bleibt alles andere Zeichen für
- * Zeichen erhalten – auch Reihenfolge und Schreibweisen, die wir gar nicht deuten.
- */
-function successorRule(rule: string): string {
-  return rule.replace(/(^|[;:\s])COUNT=(\d+)/i, (_m, pre: string, n: string) =>
-    pre + "COUNT=" + Math.max(1, parseInt(n, 10) - 1));
+/** Replace only the end clauses; preserve complex frequency clauses and imported prefixes. */
+export function setRecurrenceEnd(rule: string, end: RecurrenceEnd): string | null {
+  if (!isValidRecurrence(rule)) return null;
+  if (end.mode === "count" && (!Number.isSafeInteger(end.count) || end.count < 1)) return null;
+  if (end.mode === "until" && !validDate(end.date)) return null;
+  const raw = legacyToRRule(rule) ?? rule.trim();
+  const prefix = /^RRULE:/i.test(raw) ? raw.slice(0, 6) : "";
+  const body = raw.slice(prefix.length).split(";").filter((part) => !/^(COUNT|UNTIL)=/i.test(part)).join(";");
+  const suffix = end.mode === "count" ? ";COUNT=" + end.count
+    : end.mode === "until" ? ";UNTIL=" + end.date.replace(/-/g, "") + "T000000Z" : "";
+  return prefix + body + suffix;
+}
+
+/** A new frequency from a preset or title must not erase a manually selected end. */
+export function preserveRecurrenceEnd(rule: string, previous?: string | null): string {
+  if (!previous) return rule;
+  const end = getRecurrenceEnd(previous);
+  return end.mode === "never" ? rule : setRecurrenceEnd(rule, end) ?? rule;
+}
+
+/** Shared by the picker and both editors, including their auto-save paths. */
+export function recurrenceEndError(rule?: string | null, due?: string | null, scheduled?: string | null): string | null {
+  const end = getRecurrenceEnd(rule);
+  if (end.mode === "count" && (!Number.isSafeInteger(end.count) || end.count < 1)) return "recur_end_invalid_count";
+  if (end.mode === "until") {
+    if (!validDate(end.date)) return "recur_end_invalid_date";
+    const start = due || scheduled;
+    if (start && end.date < start) return "recur_end_before_task";
+  }
+  return null;
+}
+
+/** Find a future occurrence and carry the unconsumed count into the successor. */
+function nextAfter(rule: string, anchorIso: string, afterIso: string, fromDone = false): { date: string; recurrence: string } | null {
+  const opts = ruleOptions(rule);
+  if (!opts) return null;
+  const count = opts.count;
+  if (typeof count === "number" && count <= 1) return null;
+  const anchor = fromIso(anchorIso), after = fromIso(afterIso);
+  const rr = new RRule({ ...opts, ...(fromDone ? { count: null } : {}), dtstart: anchor });
+  let consumed = 1; // The current task always occupies one slot, even if manually moved off-pattern.
+  let next: Date | null = null;
+  if (typeof count === "number" && !fromDone) {
+    rr.all((date) => {
+      if (date > after) { if (consumed < count) next = date; return false; }
+      if (date > anchor) consumed++;
+      return consumed < count;
+    });
+  } else {
+    next = rr.after(after, false);
+  }
+  if (!next) return null;
+  const recurrence = typeof count === "number"
+    ? rule.replace(/(^|[;:\s])COUNT=\d+/i, (_m, pre: string) => pre + "COUNT=" + (count - consumed))
+    : rule;
+  return { date: toIso(next), recurrence };
 }
 
 /**
@@ -177,33 +221,33 @@ function successorRule(rule: string): string {
 export function nextInstance(task: Task, today: string): { due: string | null; scheduled: string | null; recurrence: string } | null {
   if (!task.recurrence || !isValidRecurrence(task.recurrence)) return null;
   const fromDone = task.recurBasis === "done";
-  const rule = successorRule(task.recurrence);
 
   if (task.due) {
     const anchor = fromDone ? today : task.due;
     const after = fromDone ? today : (ms(task.due) > ms(today) ? task.due : today);
-    const nextDue = nextAfter(task.recurrence, anchor, after);
-    if (!nextDue) return null;
+    const next = nextAfter(task.recurrence, anchor, after, fromDone);
+    if (!next) return null;
+    const nextDue = next.date;
     let nextScheduled: string | null = null;
     if (task.scheduled) {
       const gap = Math.round((ms(task.scheduled) - ms(task.due)) / 86400000);
       nextScheduled = addDays(nextDue, gap);
     }
-    return { due: nextDue, scheduled: nextScheduled, recurrence: rule };
+    return { due: nextDue, scheduled: nextScheduled, recurrence: next.recurrence };
   }
   if (task.scheduled) {
     const anchor = fromDone ? today : task.scheduled;
     const after = fromDone ? today : (ms(task.scheduled) > ms(today) ? task.scheduled : today);
-    const next = nextAfter(task.recurrence, anchor, after);
-    return next ? { due: null, scheduled: next, recurrence: rule } : null;
+    const next = nextAfter(task.recurrence, anchor, after, fromDone);
+    return next ? { due: null, scheduled: next.date, recurrence: next.recurrence } : null;
   }
   // Regel ohne jedes Datum. Das ist ein Widerspruch – die Regel sagt WANN, ohne Anker gibt es kein
   // Wann – und wird deshalb gar nicht erst zugelassen (chips.ts haelt das Datum nach). In
   // Bestandsdaten steht es aber: frueher liess sich das Datum leeren, ohne dass die Regel mitging.
   // Statt aufzugeben wird ab heute gerechnet. Sonst verschwaende die Aufgabe beim Abhaken
   // ERSATZLOS, und der Nutzer merkte es erst, wenn sie nie wiederkam.
-  const fallback = nextAfter(task.recurrence, today, today);
-  return fallback ? { due: fallback, scheduled: null, recurrence: rule } : null;
+  const fallback = nextAfter(task.recurrence, today, today, true);
+  return fallback ? { due: fallback.date, scheduled: null, recurrence: fallback.recurrence } : null;
 }
 
 /**

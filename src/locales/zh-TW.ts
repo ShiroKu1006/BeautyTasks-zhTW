@@ -1,5 +1,14 @@
 // 台灣繁體中文介面文字。識別字、資料語法與占位符沿用英文基準。
 export const zhTW: Record<string, string> = {
+  recur_end_title: "結束於",
+  recur_end_never: "永不",
+  recur_end_date: "指定日期",
+  recur_end_count: "指定次數",
+  recur_end_count_hint: "剩餘次數包含本次。依排定日期重複時，跳過的過期排程也計入次數。",
+  recur_end_date_hint: "請選擇截止日期，包含當天。",
+  recur_end_invalid_count: "請輸入大於 0 的整數。",
+  recur_end_invalid_date: "請選擇有效的截止日期。",
+  recur_end_before_task: "截止日期不能早於本次任務日期。",
   set_meta_theme_user: "自訂",
   gcal_auth_incomplete_token: "Google 回傳的 Token 資料不完整。",
   gcal_auth_not_connected: "尚未與 Google 連線。",
@@ -30,7 +39,7 @@ export const zhTW: Record<string, string> = {
   set_field_labels: "標籤", set_field_labels_desc: "用來存放任務標籤的欄位。設為 `tags` 後，標籤就會成為真正的 Obsidian 標籤，顯示在 Obsidian 的標籤窗格中，也能被其他 App 找到。同時，任務筆記中的每個標籤也都會被視為任務標籤。", set_field_confirm_labels: "BeautyTasks 將改從 {0} 讀取標籤，不再使用 {1}。會移轉 {2} 個任務的標籤；除非你在下方選擇移除，否則舊欄位會保留。",
   wn_recurmore_t: "更靈活的重複規則", wn_recurmore_d: "只在平日、每隔一週的星期二、每月最後一個星期五，還能設定結束日期。BeautyTasks 現在支援 iCalendar 標準的規則，與 Google 和 Outlook 使用相同的格式。", wn_recurtype_t: "直接輸入規則", wn_recurtype_d: "在任務標題或重複設定選單中輸入「every second Monday」或「last Friday of the month」。預覽會立即顯示系統如何解讀規則。", wn_recurplain_t: "用日常文字呈現規則", wn_recurplain_d: "以機器可讀的格式儲存，用易懂的文字顯示：例如「每 2 週的星期二」，而不是只有行事曆 App 才看得懂的一行規則。",
   recur_custom: "自訂規則", recur_custom_ph: "例如：every second Monday", recur_custom_hint: "也可輸入：「every 3 days」、「last Friday of the month」、「on the 15th of each month」",
-  recur_n_days: "每 {0} 天", recur_n_weeks: "每 {0} 週", recur_n_months: "每 {0} 個月", recur_n_years: "每 {0} 年", recur_weekdays: "平日", recur_weekend: "週末", recur_every_weekday: "每個{0}", recur_n_weeks_on: "每 {0} 週的{1}", recur_last_weekday_month: "每月最後一個{0}", recur_nth_weekday_month: "每月第 {0} 個{1}", recur_monthday: "每月 {0} 日", recur_until: "至 {0}", recur_count: "再重複 {0} 次",
+  recur_n_days: "每 {0} 天", recur_n_weeks: "每 {0} 週", recur_n_months: "每 {0} 個月", recur_n_years: "每 {0} 年", recur_weekdays: "平日", recur_weekend: "週末", recur_every_weekday: "每個{0}", recur_n_weeks_on: "每 {0} 週的{1}", recur_last_weekday_month: "每月最後一個{0}", recur_nth_weekday_month: "每月第 {0} 個{1}", recur_monthday: "每月 {0} 日", recur_until: "至 {0}", recur_count: "剩餘 {0} 次（含本次）",
   wn_statusid_t: "自由設定狀態值", wn_statusid_d: "現在可以分別設定狀態的顯示名稱與筆記中儲存的值。介面可以顯示「進行中」，同時寫入其他 App 所需的狀態值。",
   status_edit_id: "變更儲存值", status_id_hint: "這個值會寫入筆記的 frontmatter，供其他 App 讀取；上方的名稱僅用於顯示。", status_id_confirm_title: "要變更儲存值嗎？", status_id_confirm: "將改寫 {0} 個任務：把 `status: {1}` 改為 `status: {2}`。篩選器與欄位順序也會一併更新。顯示名稱「{3}」維持不變。", status_id_apply: "變更", status_id_done: "已改寫 {0} 個任務。", status_id_bad: "只能使用英文字母、數字、連字號與底線，且必須以英文字母開頭。", status_id_taken: "其他狀態已使用這個值。",
   btn_move_up: "上移", btn_move_down: "下移",
