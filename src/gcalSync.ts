@@ -167,6 +167,7 @@ export interface GCalSyncSettings {
   clientSecret: string;
   calendarId: string;              // Ziel-Kalender ("" bis gewählt)
   timezone: string;                // IANA, z. B. "Europe/Berlin"
+  timezoneVersion?: 1;             // 舊版固定柏林時區的設定已檢查／遷移
   defaultDurationMin: number;      // Länge, wenn eine Aufgabe eine Uhrzeit, aber keine Dauer hat
   autoSync: boolean;               // bei Vault-Änderungen automatisch pushen
   syncOnCreate: boolean;           // neue datierte Aufgaben als Event anlegen
@@ -184,12 +185,18 @@ export interface GCalSyncSettings {
   // (s. dort). Sie sind Abgleich-Zustand eines Geräts, keine Einstellung des Vaults.
 }
 
+function localTimezone(): string {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; }
+  catch { return "UTC"; }
+}
+
 export const DEFAULT_GCAL_SETTINGS: GCalSyncSettings = {
   enabled: false,
   clientId: "",
   clientSecret: "",
   calendarId: "",
-  timezone: "Europe/Berlin",
+  timezone: localTimezone(),
+  timezoneVersion: 1,
   defaultDurationMin: 60,
   autoSync: true,
   syncOnCreate: true,
@@ -200,6 +207,18 @@ export const DEFAULT_GCAL_SETTINGS: GCalSyncSettings = {
   notifyConflicts: false,
   showStatusBar: true,
 };
+
+/** 台灣裝置上的舊柏林預設會把 15:45 推成台灣的 21:45。只遷移一次，
+ *  之後使用者手動選回柏林仍予以保留；其他自訂時區也不受影響。 */
+export function resolveGCalSettings(saved?: Partial<GCalSyncSettings>): GCalSyncSettings {
+  const local = localTimezone();
+  const legacyBerlin = saved?.timezoneVersion !== 1 && saved?.timezone === "Europe/Berlin" && local === "Asia/Taipei";
+  return {
+    ...DEFAULT_GCAL_SETTINGS, ...saved,
+    timezone: legacyBerlin ? local : saved?.timezone || local,
+    timezoneVersion: 1,
+  };
+}
 
 // ── Status-Emitter ────────────────────────────────────────────────────────────
 export type GCalStatus = "disconnected" | "idle" | "syncing" | "error";
@@ -389,11 +408,33 @@ async function pullEvents(
 }
 
 /** Signatur der gepushten Felder – ändert sie sich, wird das Event gepatcht. */
-function signature(task: Task, calIdx: number): string {
-  return JSON.stringify([
+function signature(task: Task, calIdx: number, timezone?: string): string {
+  const parts: unknown[] = [
     task.title, task.due, task.dueTime, task.duration,
     (task.reminders ?? []).join(","), calIdx,
-  ]);
+  ];
+  // 全天事件不受時區影響；舊快取沒有第七欄，有時間的事件會重新同步一次。
+  if (task.dueTime && timezone) parts.push(timezone);
+  return JSON.stringify(parts);
+}
+
+function syncedTimezone(link: GCalLink): string | undefined {
+  try {
+    const parts: unknown = JSON.parse(link.s);
+    return Array.isArray(parts) && typeof parts[6] === "string" ? parts[6] : undefined;
+  } catch { return undefined; }
+}
+
+/** Google 可用日曆時區或 UTC 回傳 dateTime，必須轉回事件時區才能比較鐘面時間。 */
+function eventWallStamp(dateTime: string, timezone: string): string | null {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+    }).formatToParts(new Date(dateTime));
+    const values = Object.fromEntries(parts.map((p) => [p.type, p.value]));
+    return `${values.year}-${values.month}-${values.day}T${values.hour}:${values.minute}`;
+  } catch { return null; }
 }
 
 // ── Engine ────────────────────────────────────────────────────────────────────
@@ -509,6 +550,12 @@ export class GCalSync {
       const known = link.d !== undefined;
       const lastDue = known ? (link.d ?? null) : (task.due ?? null);
       const lastDueTime = known ? (link.t ?? null) : (task.dueTime ?? null);
+      const start = ev.start as { dateTime?: string; timeZone?: string } | undefined;
+      // Google 保留的是上次推送的鐘面時間、但時區不同時，是待修正的舊事件，
+      // 不可先把時差寫回任務。真正改過日期／時間的 Google 事件仍走一般 Pull。
+      if (s.syncOnUpdate && lastDueTime && syncedTimezone(link) !== s.timezone
+        && start?.timeZone && start.timeZone !== s.timezone
+        && start.dateTime && eventWallStamp(start.dateTime, start.timeZone) === `${lastDue}T${lastDueTime}`) continue;
       const gChanged = g.due !== lastDue || g.dueTime !== lastDueTime;
       if (!gChanged) {
         if (!known) { link.d = g.due; link.t = g.dueTime; }           // Stand nachtragen (Migration)
@@ -519,7 +566,7 @@ export class GCalSync {
 
       await this.writeBackDue(task, g.due, g.dueTime);  // Google geändert, Obsidian nicht → zurückschreiben
       link.d = g.due; link.t = g.dueTime;
-      link.s = signature({ ...task, due: g.due, dueTime: g.dueTime }, calIdx);
+      link.s = signature({ ...task, due: g.due, dueTime: g.dueTime }, calIdx, s.timezone);
       pulled.add(taskId);
     }
 
@@ -547,7 +594,7 @@ export class GCalSync {
       try {
       const link = c.links[id];
       const eventId = link?.e ?? this.frontmatterEventId(task);
-      const sig = signature(task, calIdx);
+      const sig = signature(task, calIdx, s.timezone);
       const stamp = (evId: string): GCalLink => ({ e: evId, c: calIdx, s: sig, d: task.due, t: task.dueTime });
       const linkCal = link ? c.cals[link.c] : undefined;
       if (!eventId) {

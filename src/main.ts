@@ -42,7 +42,7 @@ import { ImportTaskNotesModal } from "./importTaskNotes";
 import { WhatsNewModal } from "./whatsNew";
 import { calendarDayAnchor } from "./calendarView";
 import { GCalAuth, TokenStore, DevicePrompt, GCalTokens, planTokenMigration } from "./gcalAuth";
-import { GCalSync, GCalSyncHost, GCalCache, LegacyGCalLink, emptyGCalCache, calIndex, seedGCalCache, resignLegacySignature, DEFAULT_GCAL_SETTINGS, listCalendars, ensureDefaultCalendar, fetchAccountEmail, CalendarInfo, GCalStatusInfo } from "./gcalSync";
+import { GCalSync, GCalSyncHost, GCalCache, LegacyGCalLink, emptyGCalCache, calIndex, seedGCalCache, resignLegacySignature, resolveGCalSettings, listCalendars, ensureDefaultCalendar, fetchAccountEmail, CalendarInfo, GCalStatusInfo } from "./gcalSync";
 import { GCalFeed, GCalFeedHost, DEFAULT_GCAL_FEED_SETTINGS } from "./gcalFeed";
 
 /** Eigene Icons. addIcon() erwartet Inhalt für ein viewBox="0 0 100 100"; die Pfade sind auf
@@ -2575,11 +2575,12 @@ export default class BeautyTasksPlugin extends Plugin {
     this.settings.fieldNames = allFieldNames();
     // Google-Kalender-Sub-Objekt mit Defaults auffüllen (fehlende/neue Felder ergänzen,
     // gespeicherte Werte behalten). Lebendes Objekt – die Engine mutiert lastSynced/syncTokens darin.
-    this.settings.gcal = Object.assign({}, DEFAULT_GCAL_SETTINGS, this.settings.gcal);
+    this.settings.gcal = resolveGCalSettings(this.settings.gcal);
     this.settings.gcalFeed = Object.assign({}, DEFAULT_GCAL_FEED_SETTINGS, this.settings.gcalFeed);
     this.device = Object.assign({}, DEFAULT_DEVICE_STATE,
       this.app.loadLocalStorage(DEVICE_STATE_KEY) as Partial<DeviceState> | null);
     let dirty = this.migrateGCalTokens();
+    dirty = (!!saved?.gcal && saved.gcal.timezoneVersion !== 1) || dirty;
     dirty = this.migrateGCalCache() || dirty;
     dirty = this.migrateDeviceState() || dirty;
     if (dirty) await this.saveSettings();
